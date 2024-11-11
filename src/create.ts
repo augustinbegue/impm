@@ -2,24 +2,21 @@ import { parseArgs } from "util"
 import { join } from "path";
 import { promises as fs } from 'fs';
 import { log } from ".";
+import prompts from 'prompts';
 
-export async function generateProject() {
-  const plog = log.getSubLogger({ name: 'generate-project' });
+export async function createProject() {
+  const plog = log.getSubLogger({ name: 'create-project' });
 
   const { values, positionals } = parseArgs({
     args: Bun.argv,
     options: {
-      'generate': {
-        type: 'boolean',
-        required: true,
-      },
       'name': {
         type: 'string',
-        required: true,
+        required: false,
       },
       'path': {
         type: 'string',
-        required: true,
+        required: false,
       },
       'directories': {
         type: 'string',
@@ -30,10 +27,40 @@ export async function generateProject() {
     allowPositionals: true,
   })
 
-  if (!values.path || !values.name || !values.directories) {
-    console.log(`Invalid command.
-Usage: bun --generate --name <name> --path <path> [--directories <directories>]`)
-    return;
+  if (!values.name) {
+    const res = await prompts({
+      type: 'text',
+      name: 'name',
+      message: "Enter the project's name",
+      validate: (name: string) => {
+        if (!name) return 'Name cannot be empty';
+        return true;
+      }
+    }, {
+      onCancel: () => {
+        plog.error('User cancelled the operation');
+        process.exit(1);
+      }
+    })
+    values.name = res.name;
+  }
+
+  if (!values.path) {
+    const res = await prompts({
+      type: 'text',
+      name: 'path',
+      message: "Enter the project's path",
+      validate: (path: string) => {
+        if (!path) return 'Path cannot be empty';
+        return true;
+      },
+    }, {
+      onCancel: () => {
+        plog.error('User cancelled the operation');
+        process.exit(1);
+      }
+    })
+    values.path = res.path;
   }
 
   try {
