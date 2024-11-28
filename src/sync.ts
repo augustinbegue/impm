@@ -1,13 +1,30 @@
-import { addAssetsToAlbum, createAlbum, getAllAlbums, getAllLibraries, getAssetInfo, init, scanLibrary, searchMetadata, searchSmart } from '@immich/sdk';
+import { addAssetsToAlbum, createAlbum, getAllAlbums, getAllLibraries, init, scanLibrary, searchMetadata, updateAssets } from '@immich/sdk';
 import { Glob } from 'bun';
 import { promises as fs } from 'fs';
 import { resolveAlias, resolvePath } from './utils';
 import type { ProjectDefinition } from './index.d';
 import { log } from '.';
-import { join } from 'path';
+import { join, parse } from 'path';
+import { parseArgs } from 'util';
 
 export async function syncProjects() {
   const plog = log.getSubLogger({ name: 'sync-projects' });
+
+  const { values } = parseArgs({
+    args: process.argv,
+    options: {
+      'filter': {
+        type: 'string',
+        required: false,
+      },
+      'skip-scan': {
+        type: 'boolean',
+        required: false,
+      }
+    },
+    strict: false,
+    allowPositionals: true,
+  });
 
   const requiredEnvVars = ['IMMICH_BASE_URL', 'IMMICH_API_KEY', 'IMMICH_LIBRARY_NAME'];
   for (const envVar of requiredEnvVars) {
@@ -16,23 +33,25 @@ export async function syncProjects() {
     }
   }
 
-  const fileExtensions: string[] = JSON.parse(Bun.env.IMMICH_FILE_EXTENSIONS ?? '[".JPG", ".MOV", ".MP4", ".PNG", ".jpg", ".mov", ".mp4", ".png"]');
+  const fileExtensions: string[] = JSON.parse(Bun.env['IMMICH_FILE_EXTENSIONS'] ?? '[".JPG", ".MOV", ".MP4", ".PNG", ".jpg", ".mov", ".mp4", ".png"]');
   if (Array.isArray(fileExtensions) && fileExtensions.length > 0)
     plog.info('Loaded file extensions:', fileExtensions);
 
   init({
-    baseUrl: Bun.env.IMMICH_BASE_URL!,
-    apiKey: Bun.env.IMMICH_API_KEY!,
+    baseUrl: Bun.env['IMMICH_BASE_URL']!,
+    apiKey: Bun.env['IMMICH_API_KEY']!,
   })
 
   // Get library
-  const library = await getAllLibraries().then((res) => res.find((lib) => lib.name === Bun.env.IMMICH_LIBRARY_NAME));
+  const library = await getAllLibraries().then((res) => res.find((lib) => lib.name === Bun.env['IMMICH_LIBRARY_NAME']));
   if (!library) {
-    throw new Error(`Library ${Bun.env.IMMICH_LIBRARY_NAME} not found`);
+    throw new Error(`Library ${Bun.env['IMMICH_LIBRARY_NAME']} not found`);
   }
   // Scan library
-  plog.info(`Scanning library: ${library.name} (${library.id})`);
-  await scanLibrary(library);
+  if (!values['skip-scan']) {
+    plog.info(`Scanning library: ${library.name} (${library.id})`);
+    await scanLibrary(library);
+  }
 
   // Retreive paths to search
   const searchPaths: string[] = [];
@@ -51,6 +70,10 @@ export async function syncProjects() {
   }
 
   const immichAlbums = await getAllAlbums({});
+  const assetsWithProxies: {
+    id: string;
+    encodedVideoPath: string;
+  }[] = [];
   // Search for project definitions
   for (const searchPath of searchPaths) {
     const albumDefinitionsGlob = new Glob('**/immich-project.json');
@@ -62,6 +85,12 @@ export async function syncProjects() {
     for (const albumDefinition of albumDefinitions) {
       const path = albumDefinition.replace(/\/immich-project.json$/, '');
       const project = await Bun.file(albumDefinition).json() as ProjectDefinition;
+
+      if (values.filter && typeof values.filter === 'string' && !new Glob(values.filter).match(project.name)) {
+        plog.info(`[${project.name}] Skipping project`);
+        continue;
+      }
+
       plog.info(`[${project.name}] Found project definition @ ${path}`);
 
       const files = Array.from(new Glob(`**/*{${fileExtensions.join(',')}}`).scanSync({
@@ -93,6 +122,20 @@ export async function syncProjects() {
               originalPath: immichPath,
             }
           });
+
+          // Check if a Proxy exists for the file
+          const fileName = parse(filePath).name + '.mov';
+          const proxyPath = join(parse(filePath).dir, `/Proxy/${fileName}`);
+          if (await fs.exists(proxyPath)) {
+            const ap = meta.assets.items.map((asset) => {
+              return {
+                id: asset.id,
+                encodedVideoPath: proxyPath
+              }
+            });
+            assetsWithProxies.push(...ap);
+          }
+
           return meta.assets.items.map((asset) => {
             return {
               id: asset.id,
@@ -140,6 +183,16 @@ export async function syncProjects() {
         }
       }
     }
+  }
+
+  if (assetsWithProxies.length > 0) {
+    plog.info('Found assets with proxies, generating SQL update script');
+    let sql = "";
+    for (const asset of assetsWithProxies) {
+      sql += `UPDATE assets SET "encodedVideoPath" = '${resolveAlias(asset.encodedVideoPath)}' WHERE id = '${asset.id}';\n`;
+    }
+
+    fs.writeFile('update-encoded-video-path.sql', sql);
   }
 
   async function findOrCreateAlbum(name: string, project: ProjectDefinition) {

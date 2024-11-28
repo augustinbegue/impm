@@ -7,8 +7,8 @@ import prompts from 'prompts';
 export async function createProject() {
   const plog = log.getSubLogger({ name: 'create-project' });
 
-  const { values, positionals } = parseArgs({
-    args: Bun.argv,
+  const { values } = parseArgs({
+    args: process.argv,
     options: {
       'name': {
         type: 'string',

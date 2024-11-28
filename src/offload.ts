@@ -8,8 +8,8 @@ import { ensureDirectoryExists } from "./utils";
 export async function offload() {
   const plog = log.getSubLogger({ name: 'offload' });
 
-  const { values, positionals } = parseArgs({
-    args: Bun.argv,
+  const { values } = parseArgs({
+    args: process.argv,
     options: {
       'offload': {
         type: 'boolean',

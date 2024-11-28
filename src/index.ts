@@ -42,9 +42,7 @@ if (values.help) {
   process.exit(0)
 }
 
-if (positionals.length !== 3) {
-  console.log(`Invalid command. Run 'impm --help' for more information.`)
-} else if (positionals[2] === 'sync') {
+if (positionals[2] === 'sync') {
   syncProjects()
 } else if (positionals[2] === 'create') {
   createProject()

@@ -1,9 +1,12 @@
 {
   "dependencies": {
     "@immich/sdk": "^1.118.2",
+    "@types/ffprobe": "^1.1.8",
     "@types/prompts": "^2.4.9",
+    "ffprobe": "^1.1.2",
     "prompts": "^2.4.2",
-    "tslog": "^4.9.3"
+    "tslog": "^4.9.3",
+    "xmlbuilder2": "^3.1.1"
   },
   "devDependencies": {
     "@types/bun": "latest"

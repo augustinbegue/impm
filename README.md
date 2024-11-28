@@ -34,3 +34,8 @@ impm sync
 ```bash
 impm offload
 ```
+
+## TODO
+
+[ ] - Add generated proxies as encodedVideos using DB
+[ ] - Publish to NPM via CI

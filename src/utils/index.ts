@@ -1,16 +1,21 @@
 import { promises as fs } from 'fs';
-import { log } from ".";
+import { log } from "../";
 
 let pathAliases: {
   [key: string]: string;
 };
 
 function loadPathAliases() {
-  pathAliases = JSON.parse(Bun.env.IMMICH_LIBRARY_PATH_ALIASES ?? '{}');
+  pathAliases = JSON.parse(Bun.env['IMMICH_LIBRARY_PATH_ALIASES'] ?? '{}');
   if (typeof pathAliases === 'object' && Object.keys(pathAliases).length > 0)
     log.info('Loaded path aliases:', pathAliases);
 }
 
+/**
+ * Convert an aliased path to a resolved path
+ * @param path 
+ * @returns Resolved path
+ */
 export function resolvePath(path: string): string {
   if (!pathAliases)
     loadPathAliases();
@@ -24,6 +29,11 @@ export function resolvePath(path: string): string {
   return path;
 }
 
+/**
+ * Convert a path to an alias if it starts with a resolved path
+ * @param path 
+ * @returns Aliased path
+ */
 export function resolveAlias(path: string): string {
   if (!pathAliases)
     loadPathAliases();
