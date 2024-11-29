@@ -13,35 +13,34 @@ export class ResolveImportScript {
 import DaVinciResolveScript as dvr_script
 
 def get_media_pool():
-    """Initialize connection to Resolve and get media pool."""
-    resolve = dvr_script.scriptapp("Resolve")
-    project_manager = resolve.GetProjectManager()
-    current_project = project_manager.GetCurrentProject()
-    if not current_project:
-        raise Exception("No project is currently open")
-    return current_project.GetMediaPool()
+  """Initialize connection to Resolve and get media pool."""
+  resolve = dvr_script.scriptapp("Resolve")
+  project_manager = resolve.GetProjectManager()
+  current_project = project_manager.GetCurrentProject()
+  if not current_project:
+      raise Exception("No project is currently open")
+  return current_project.GetMediaPool()
 
 def get_media_storage():
-    """Get media storage."""
-    resolve = dvr_script.scriptapp("Resolve")
-    media_sorage = resolve.GetMediaStorage()
-    if not media_sorage:
-        raise Exception("No media storage found")
-    return media_sorage
+  """Get media storage."""
+  resolve = dvr_script.scriptapp("Resolve")
+  media_sorage = resolve.GetMediaStorage()
+  if not media_sorage:
+      raise Exception("No media storage found")
+  return media_sorage
 
 def main():
-    try:
-        media_pool = get_media_pool()
-        media_storage = get_media_storage()
-        root_folder = media_pool.GetRootFolder()
-        {operations}
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return False
-    return True
+  try:
+    media_pool = get_media_pool()
+    root_folder = media_pool.GetRootFolder()
+    {operations}
+  except Exception as e:
+    print(f"Error: {str(e)}")
+    return False
+  return True
 
 if __name__ == "__main__":
-    main()
+  main()
 `;
   }
 
@@ -59,11 +58,11 @@ if __name__ == "__main__":
     const operation: ScriptOperation = {
       description: "Import files to root folder",
       code: `
-        # Import files to root folder
-        print("Importing files to root folder...")
-        clips = media_storage.AddItemsToMediaPool([${pathsStr}])
-        if not clips:
-            print("Failed to import some or all files to root folder")
+    # Import files to root folder
+    print("Importing files to root folder...")
+    clips = media_pool.ImportMedia([${pathsStr}])
+    if not clips:
+      print("Failed to import some or all files to root folder")
         `
     };
 
@@ -88,18 +87,24 @@ if __name__ == "__main__":
     const operation: ScriptOperation = {
       description: `Create subfolder '${folderName}' and import files`,
       code: `
-        # Create subfolder and import files
-        print("Creating subfolder '${folderName}' and importing files...")
-        new_folder = media_pool.AddSubFolder(root_folder, "${folderName}")
-        if not new_folder:
-            raise Exception("Failed to create subfolder: ${folderName}")
-        
-        media_pool.SetCurrentFolder(new_folder)
-        clips = media_storage.AddItemsToMediaPool([${pathsStr}])
-        if not clips:
-            print("Failed to import some or all files to subfolder")
-        media_pool.SetCurrentFolder(root_folder)  # Reset to root folder
-        `
+    # Create subfolder and import files
+    print("Checking if subfolder '${folderName}' exists...")
+    existing_folders = root_folder.GetSubFolderList()
+    if "${folderName}" in [folder.GetName() for folder in existing_folders]:
+      new_folder = next(folder for folder in existing_folders if folder.GetName() == "${folderName}")
+      print("Subfolder '${folderName}' already exists.")
+    else:
+      print("Creating subfolder '${folderName}'...")
+      new_folder = media_pool.AddSubFolder(root_folder, "${folderName}")
+      if not new_folder:
+        raise Exception("Failed to create subfolder: ${folderName}")
+    
+    media_pool.SetCurrentFolder(new_folder)
+    clips = media_pool.ImportMedia([${pathsStr}])
+    if not clips:
+      print("Failed to import some or all files to subfolder")
+    media_pool.SetCurrentFolder(root_folder)  # Reset to root folder
+      `
     };
 
     this.operations.push(operation);

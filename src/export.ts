@@ -83,9 +83,7 @@ for (const searchPath of searchPaths) {
       }
 
       const folderName = immichAlbumInfo.albumName.replace(project.name, '').replace(' /', '').trim();
-      if (folderName.length === 0) {
-        scriptGen.addFilesToRoot(files);
-      } else {
+      if (folderName.length > 0) {
         scriptGen.createSubfolderWithFiles(folderName, files);
       }
     }
